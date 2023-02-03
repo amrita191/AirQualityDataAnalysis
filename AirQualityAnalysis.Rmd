@@ -1,0 +1,281 @@
+---
+title: "AirQualityAnalysis"
+author: "Amrita Srivastava"
+date: "2022-09-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r readData}
+CityData <- read.csv("city_hour.csv")
+
+```
+
+```{r LoadLibraries}
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+library(ggcorrplot)
+library(Amelia)
+library(pastecs)
+library(Metrics)
+```
+
+```{r Structure}
+str(CityData)
+
+```
+
+```{r Summary}
+
+summary(subset(CityData, select=c(PM2.5,PM10,NO,NO2,NOx,NH3,
+                                  CO,SO2,O3,Benzene,Toluene,
+                                  Xylene,AQI)))
+
+options(scipen = 100)
+options(digits=2)
+stat.desc(subset(CityData, select=c(PM2.5,PM10,NO,NO2,NOx,NH3,
+                                  CO,SO2,O3,Benzene,Toluene,
+                                  Xylene,AQI)))
+```
+
+```{r CleanUp}
+
+#Remove rows missing AQI values
+AllCities <- CityData[!is.na(CityData$AQI),]
+
+#Replace missing values with 0
+AllCities <- AllCities %>% replace(is.na(.),0)
+
+#Change datatypes of variables
+AllCities$Date <- as.Date(AllCities$Datetime)
+
+AllCities$City <- as.factor(AllCities$City)
+
+AllCities$AQI_Bucket <- as.factor(AllCities$AQI_Bucket)
+
+AllCities <- mutate(AllCities,Year=year(AllCities$Datetime),
+                        Month=month(AllCities$Datetime),
+                        Day=day(AllCities$Datetime),
+                        Hour=hour(AllCities$Datetime))
+
+AllCities$Year <- as.factor(AllCities$Year)
+
+AllCities$Month <- as.factor(AllCities$Month)
+
+AllCities$Day <- as.factor(AllCities$Day)
+
+AllCities$Hour <- as.factor(AllCities$Hour)
+
+#Subset of Delhi data for year 2019
+Delhi2019 <- subset(AllCities,Year==2019 & City=="Delhi", select =1:16)
+
+
+#Particulate data subsets
+PM25Data <- subset(AllCities,Year==2019, select = c(1,3,15))
+PM10Data <- subset(AllCities,Year==2019, select = c(1,4,15))
+NOData <- subset(AllCities,Year==2019, select = c(1,5,15))
+NO2Data <- subset(AllCities,Year==2019, select = c(1,6,15))
+NOxData <- subset(AllCities,Year==2019, select = c(1,7,15))
+NH3Data <- subset(AllCities,Year==2019, select = c(1,8,15))
+COData <- subset(AllCities,Year==2019, select = c(1,9,15))
+SO2Data <- subset(AllCities,Year==2019, select = c(1,10,15))
+O3Data <- subset(AllCities,Year==2019, select = c(1,11,15))
+BnznData <- subset(AllCities,Year==2019, select = c(1,12,15))
+TlnData <- subset(AllCities,Year==2019, select = c(1,13,15))
+XylnData <- subset(AllCities,Year==2019, select = c(1,14,15))
+
+```
+
+
+```{r hist}
+#Show missing data statistics
+missmap(CityData)
+
+#Following plots show the frequency of variables on histogram plots
+
+ggplot(AllCities,aes(City))+
+  geom_histogram(stat="count", color="black")+
+  theme(legend.position = "none",axis.text.x = element_text(angle = 90))
+
+ggplot(AllCities,aes(AQI_Bucket))+
+  geom_histogram(color="black",fill="chocolate3",stat = "count")
+
+ggplot(AllCities,aes(PM2.5))+
+  geom_histogram(color="black",fill="lightblue",bins = 20)
+
+ggplot(AllCities,aes(PM10))+
+  geom_histogram(color="black",fill="lightgreen",bins = 20)
+
+ggplot(AllCities,aes(NO))+
+  geom_histogram(color="black",fill="darkblue",bins = 10)
+
+ggplot(AllCities,aes(NO2))+
+  geom_histogram(color="black",fill="pink",bins = 10)
+
+ggplot(AllCities,aes(NOx))+
+  geom_histogram(color="black",fill="white",bins = 10)
+
+ggplot(AllCities,aes(NH3))+
+  geom_histogram(color="black",fill="brown",bins = 10)
+
+ggplot(AllCities,aes(CO))+
+  geom_histogram(color="black",fill="coral",bins = 10)
+
+ggplot(AllCities,aes(SO2))+
+  geom_histogram(color="black",fill="antiquewhite",bins = 20)
+
+ggplot(AllCities,aes(O3))+
+  geom_histogram(color="black",fill="darkolivegreen",bins = 30)
+
+ggplot(AllCities,aes(Benzene))+
+  geom_histogram(color="black",fill="yellow",bins = 40)
+
+ggplot(AllCities,aes(Toluene))+
+  geom_histogram(color="black",fill="orange",bins = 25)
+
+ggplot(AllCities,aes(Xylene))+
+  geom_histogram(color="black",fill="cyan",bins = 40)
+
+ggplot(AllCities,aes(AQI))+
+  geom_histogram(color="black",fill="grey",bins = 20)
+
+
+```
+
+
+```{r Plot}
+#Plot of all cities showing their respective AQI values
+
+ggplot(AllCities, aes(AQI, City, fill=City))+
+  geom_col()+
+  labs(title='Air Quality in Indian Cities',y='City',x='Total of Air Quality Index') +
+  theme(legend.position = "none",plot.title = element_text(hjust = 0.5))
+
+```
+
+
+```{r Pollutants}
+#Bar Plot comparing the level of each pollutant in air for 2019 city wise
+ggplot(PM25Data,aes(x=PM2.5,City, fill=City))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none",plot.title = element_text(face="bold",hjust = 0.5)) +
+  labs(title ="Measure of PM2.5 in air in year 2019")
+
+ggplot(PM10Data,aes(PM10,City, fill=City))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none",plot.title = element_text(face="bold",hjust = 0.5)) +
+  labs(title ="Measure of PM10 in air in year 2019")
+
+ggplot(NOData,aes(NO,City, fill=City))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none",plot.title = element_text(face="bold",hjust = 0.5)) +
+  labs(title ="Measure of NO in air in year 2019")
+
+ggplot(NO2Data,aes(NO2,City, fill=City))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none",plot.title = element_text(face="bold",hjust = 0.5)) +
+  labs(title ="Measure of NO2 in air in year 2019")
+
+ggplot(NOxData,aes(NOx,City, fill=City))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none",plot.title = element_text(face="bold",hjust = 0.5)) +
+  labs(title ="Measure of NOx in air in year 2019")
+
+ggplot(NH3Data,aes(NH3,City, fill=City))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none",plot.title = element_text(face="bold",hjust = 0.5)) +
+  labs(title="Measure of NH3 in air in year 2019")
+
+```
+
+```{r Pollutants2}
+
+ggplot(COData,aes(CO,City, fill=City))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none",plot.title = element_text(face="bold",hjust = 0.5)) +
+  labs(title ="Measure of CO in air in year 2019")
+
+ggplot(SO2Data,aes(SO2,City, fill=City))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none",plot.title = element_text(face="bold",hjust = 0.5)) +
+  labs(title ="Measure of SO2 in air in year 2019")
+
+ggplot(O3Data,aes(O3,City, fill=City))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none",plot.title = element_text(face="bold",hjust = 0.5)) +
+  labs(title ="Measure of O3 in air in year 2019")
+
+ggplot(BnznData,aes(Benzene,City, fill=City))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none",plot.title = element_text(face="bold",hjust = 0.5)) +
+  labs(title ="Measure of Benzene in air in year 2019")
+
+ggplot(TlnData,aes(Toluene,City, fill=City))+
+  geom_bar(stat="identity") +
+  theme(legend.position = "none",plot.title = element_text(face="bold",hjust = 0.5)) +
+  labs(title ="Measure of Toluene in Air in year 2019")
+
+ggplot(XylnData,aes(Xylene,City, fill=City))+
+  geom_bar(stat="identity",order()) +
+  theme(legend.position = "none",plot.title = element_text(face="bold",hjust = 0.5)) +
+  labs(title ="Measure of Xylene in air in year 2019")
+
+```
+
+```{r OverallMean}
+#Overall mean of variables
+
+colMeans(AllCities[,3:15])
+
+```
+
+
+```{r Corr}
+#Find correlation of AQI with independent variables
+
+r <- cor(AllCities[,3:15]) 
+round(r,2)
+
+ggcorrplot(r, hc.order = TRUE,
+           type = 'lower',
+           lab = TRUE)
+```
+
+```{r LinearRegression}
+#Multiple Regression Model
+#Regression Analysis of AQI value of Delhi 2019 using Linear model
+
+traindata <- Delhi2019[1:7000,3:15]
+testdata <- Delhi2019[7001:8760,3:15]
+
+#Datasets summary
+str(traindata)
+str(testdata)
+
+#model1 is the relationship between AQI(response variable) and all other variables(predictor)
+model1 <- lm(AQI~., data=traindata)
+
+#model2 is the relationship between AQI and all other variables except Benzene, Toluene, and O3(Ozone)
+model2 <- lm(AQI~.-Benzene-Xylene-Toluene,data=traindata)
+
+summary(model1)
+summary(model2)
+
+testdata$p1 <- predict(model1,testdata,type="response")
+testdata$p2 <- predict(model2,testdata,type="response")
+
+#Calculating the Forecast KPIs - Root Mean Squared Error and Mean Absolute Error
+error1 <- c("RMSE"=rmse(testdata$p1,testdata$AQI),"MAE"=mae(testdata$p1,testdata$AQI))
+error2 <- c("RMSE"=rmse(testdata$p2,testdata$AQI),"MAE"=mae(testdata$p2,testdata$AQI))
+
+error1
+
+error2
+
+
+```
+
